@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Acapella Extractor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: #0d0d14;
+      color: #e2e2f0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .card {
+      background: #16161f;
+      border: 1px solid #2a2a3d;
+      border-radius: 20px;
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 560px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #a78bfa, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.4rem;
+    }
+
+    .header p {
+      font-size: 0.9rem;
+      color: #6b6b8a;
+    }
+
+    /* Drop zone */
+    #drop-zone {
+      border: 2px dashed #2e2e4a;
+      border-radius: 14px;
+      padding: 3rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+
+    #drop-zone:hover,
+    #drop-zone.drag-over {
+      border-color: #7c3aed;
+      background: rgba(124, 58, 237, 0.06);
+    }
+
+    #drop-zone .icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      opacity: 0.7;
+    }
+
+    #drop-zone .label {
+      font-size: 1rem;
+      font-weight: 500;
+      color: #c4c4de;
+      margin-bottom: 0.35rem;
+    }
+
+    #drop-zone .hint {
+      font-size: 0.8rem;
+      color: #4e4e6a;
+    }
+
+    #file-input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    /* Status area */
+    #status-area {
+      margin-top: 1.5rem;
+      display: none;
+    }
+
+    .file-pill {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: #1e1e2e;
+      border-radius: 10px;
+      padding: 0.65rem 1rem;
+      font-size: 0.85rem;
+      color: #9090b0;
+      margin-bottom: 1rem;
+      overflow: hidden;
+    }
+
+    .file-pill .name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #c4c4de;
+    }
+
+    /* Progress / spinner */
+    .processing-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      color: #7c6fcd;
+      font-size: 0.88rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid #3a2a6a;
+      border-top-color: #a78bfa;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .progress-bar-track {
+      width: 100%;
+      height: 6px;
+      background: #2a2a3d;
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 0.5rem;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #7c3aed, #a78bfa);
+      border-radius: 99px;
+      transition: width 1s linear;
+      width: 0%;
+    }
+
+    .note {
+      font-size: 0.78rem;
+      color: #4e4e6a;
+      margin-top: 0.25rem;
+    }
+
+    /* Error */
+    .error-box {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      font-size: 0.82rem;
+      color: #f87171;
+    }
+
+    /* Result area */
+    #result-area {
+      display: none;
+      margin-top: 1.5rem;
+    }
+
+    .result-label {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #5a5a7a;
+      margin-bottom: 0.5rem;
+    }
+
+    .audio-block {
+      margin-bottom: 1.25rem;
+    }
+
+    audio {
+      width: 100%;
+      height: 44px;
+      border-radius: 8px;
+      outline: none;
+      accent-color: #a78bfa;
+    }
+
+    audio::-webkit-media-controls-panel {
+      background: #1e1e2e;
+    }
+
+    .btn-download {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+      margin-top: 1rem;
+      padding: 0.85rem;
+      background: linear-gradient(135deg, #7c3aed, #6366f1);
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+
+    .btn-download:hover { opacity: 0.88; }
+
+    .btn-reset {
+      width: 100%;
+      margin-top: 0.65rem;
+      padding: 0.6rem;
+      background: transparent;
+      color: #5a5a7a;
+      font-size: 0.82rem;
+      border: none;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: color 0.15s;
+    }
+
+    .btn-reset:hover { color: #9090b0; }
+
+    .success-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.82rem;
+      color: #4ade80;
+      margin-bottom: 0.75rem;
+    }
+
+    .analysis-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .analysis-chip {
+      flex: 1;
+      background: #1e1e2e;
+      border: 1px solid #2a2a3d;
+      border-radius: 10px;
+      padding: 0.6rem 1rem;
+      text-align: center;
+    }
+
+    .analysis-chip .chip-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #5a5a7a;
+      margin-bottom: 0.2rem;
+    }
+
+    .analysis-chip .chip-value {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #a78bfa;
+    }
+
+    .download-row {
+      display: flex;
+      gap: 0.65rem;
+      margin-top: 1rem;
+    }
+
+    .btn-download {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <h1>Acapella Extractor</h1>
+      <p>Drop a song and get the isolated vocals</p>
+    </div>
+
+    <div id="drop-zone">
+      <input type="file" id="file-input" accept="audio/*" />
+      <div class="icon">🎵</div>
+      <div class="label">Drop your song here</div>
+      <div class="hint">or click to browse &nbsp;·&nbsp; MP3, WAV, FLAC, M4A, OGG</div>
+    </div>
+
+    <div id="status-area">
+      <div class="file-pill">
+        <span>🎶</span>
+        <span class="name" id="file-name"></span>
+      </div>
+      <div id="processing-state">
+        <div class="processing-row">
+          <div class="spinner"></div>
+          <span id="status-text">Uploading…</span>
+        </div>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progress-fill"></div>
+        </div>
+        <div class="note" id="status-note"></div>
+      </div>
+      <div id="error-state" style="display:none">
+        <div class="error-box" id="error-text"></div>
+        <button class="btn-reset" onclick="reset()">Try another file</button>
+      </div>
+    </div>
+
+    <div id="result-area">
+      <div class="success-badge">✅ Vocals extracted — <span id="elapsed-time"></span></div>
+      <div class="analysis-row">
+        <div class="analysis-chip">
+          <div class="chip-label">BPM</div>
+          <div class="chip-value" id="bpm-value">—</div>
+        </div>
+        <div class="analysis-chip">
+          <div class="chip-label">Key</div>
+          <div class="chip-value" id="key-value">—</div>
+        </div>
+      </div>
+      <div class="audio-block">
+        <div class="result-label">Original</div>
+        <audio id="original-player" controls></audio>
+      </div>
+      <div class="audio-block">
+        <div class="result-label">Extracted Vocals</div>
+        <audio id="audio-player" controls></audio>
+      </div>
+      <div class="download-row">
+        <a id="download-link" class="btn-download" download="acapella.wav">
+          ⬇ WAV
+        </a>
+        <a id="download-mp3-link" class="btn-download" download="acapella.mp3">
+          ⬇ MP3
+        </a>
+      </div>
+      <button class="btn-reset" onclick="reset()">Extract another song</button>
+    </div>
+  </div>
+
+  <script>
+    let pollTimer = null;
+    let progressTimer = null;
+    let progressStart = null;
+    const EXPECTED_MS = 30000; // ~30s on GPU
+
+    const dropZone      = document.getElementById('drop-zone');
+    const fileInput     = document.getElementById('file-input');
+    const statusArea    = document.getElementById('status-area');
+    const resultArea    = document.getElementById('result-area');
+    const fileName      = document.getElementById('file-name');
+    const statusText    = document.getElementById('status-text');
+    const statusNote    = document.getElementById('status-note');
+    const errorState    = document.getElementById('error-state');
+    const errorText     = document.getElementById('error-text');
+    const procState     = document.getElementById('processing-state');
+    const player        = document.getElementById('audio-player');
+    const originalPlayer = document.getElementById('original-player');
+    const dlLink        = document.getElementById('download-link');
+    const dlMp3Link     = document.getElementById('download-mp3-link');
+    const progressFill  = document.getElementById('progress-fill');
+    const bpmValue      = document.getElementById('bpm-value');
+    const keyValue      = document.getElementById('key-value');
+
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) handleFile(fileInput.files[0]);
+    });
+
+    async function handleFile(file) {
+      dropZone.style.display = 'none';
+      statusArea.style.display = 'block';
+      resultArea.style.display = 'none';
+      procState.style.display = 'block';
+      errorState.style.display = 'none';
+
+      fileName.textContent = file.name;
+      statusText.textContent = 'Uploading…';
+      statusNote.textContent = '';
+      setProgress(5);
+
+      const form = new FormData();
+      form.append('file', file);
+
+      let jobId;
+      try {
+        const res = await fetch('/api/separate', { method: 'POST', body: form });
+        if (!res.ok) throw new Error(await res.text());
+        ({ job_id: jobId } = await res.json());
+      } catch (err) {
+        showError('Upload failed: ' + err.message);
+        return;
+      }
+
+      statusText.textContent = 'Processing…';
+      statusNote.textContent = 'Usually done in about 30 seconds.';
+      progressStart = Date.now();
+      progressTimer = setInterval(tickProgress, 500);
+      pollTimer = setInterval(() => poll(jobId), 3000);
+    }
+
+    function tickProgress() {
+      const elapsed = Date.now() - progressStart;
+      // Ease towards 90% over EXPECTED_MS, then slow crawl
+      const pct = 90 * (1 - Math.exp(-3 * elapsed / EXPECTED_MS));
+      setProgress(Math.min(pct, 90));
+    }
+
+    function setProgress(pct) {
+      progressFill.style.width = pct + '%';
+    }
+
+    async function poll(jobId) {
+      try {
+        const res = await fetch(`/api/status/${jobId}`);
+        if (!res.ok) return;
+        const { status, error, bpm, key, elapsed } = await res.json();
+
+        if (bpm) bpmValue.textContent = bpm;
+        if (key) keyValue.textContent = key;
+
+        if (status === 'done') {
+          clearInterval(pollTimer);
+          clearInterval(progressTimer);
+          setProgress(100);
+          if (elapsed) document.getElementById('elapsed-time').textContent = `done in ${elapsed}s`;
+          setTimeout(() => showResult(jobId), 400);
+        } else if (status === 'error') {
+          clearInterval(pollTimer);
+          clearInterval(progressTimer);
+          showError(error || 'Unknown error during processing.');
+        }
+      } catch (_) { /* network hiccup, keep polling */ }
+    }
+
+    function showResult(jobId) {
+      procState.style.display = 'none';
+      resultArea.style.display = 'block';
+      originalPlayer.src = `/api/original/${jobId}`;
+      player.src = `/api/preview/${jobId}`;
+      dlLink.href = `/api/download/${jobId}`;
+      dlMp3Link.href = `/api/download-mp3/${jobId}`;
+    }
+
+    function showError(msg) {
+      clearInterval(progressTimer);
+      procState.style.display = 'none';
+      errorState.style.display = 'block';
+      errorText.textContent = msg;
+    }
+
+    function reset() {
+      clearInterval(pollTimer);
+      clearInterval(progressTimer);
+      dropZone.style.display = 'block';
+      statusArea.style.display = 'none';
+      resultArea.style.display = 'none';
+      fileInput.value = '';
+      player.src = '';
+      originalPlayer.src = '';
+      bpmValue.textContent = '—';
+      keyValue.textContent = '—';
+      setProgress(0);
+    }
+  </script>
+</body>
+</html>
