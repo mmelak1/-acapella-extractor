@@ -23,7 +23,7 @@ image = (
 app = modal.App("acapella-extractor", image=image)
 
 
-@app.cls(gpu="A10G", timeout=300, min_containers=1)
+@app.cls(gpu="A10G", timeout=300, scaledown_window=600)
 class VocalSeparator:
     @modal.enter()
     def load(self):
